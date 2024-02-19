@@ -1,15 +1,3 @@
-// import { RawData, Server, WebSocket } from 'ws';
-// import { webSocketServer } from '../ws_server/ws';
-// import { WSMessage } from '../models/message.model';
-// import { PlayerEventType, RoomEventType } from '../enums/events.enum';
-// import { game } from './Game';
-// import { GamePlayer, PlayerLoginData } from '../models/player.model';
-// import { ServerRegData } from '../models/server-data.model';
-// import { ClientAddUserToRoomData } from '../models/client-data.model';
-// import { Player } from './Player';
-// import { Room } from './Room';
-// import { GameRoom } from '../models/room.model';
-
 // export class Application {
 //   players: Set<GamePlayer>;
 //   rooms: Room[] = [];

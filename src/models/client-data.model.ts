@@ -5,7 +5,6 @@ export interface ClientRegData {
 
 export interface ClientCreateRoomData {
   data: string;
-  id: number;
 }
 
 export interface ClientAddUserToRoomData {
@@ -28,7 +27,7 @@ export interface ClientAddShipsData {
   indexPlayer: number;
 }
 
-export interface ClientAttack {
+export interface ClientAttackData {
   gameId: number;
   x: number;
   y: number;
@@ -45,5 +44,5 @@ export type ClientData =
   | ClientCreateRoomData
   | ClientAddUserToRoomData
   | ClientAddShipsData
-  | ClientAttack
+  | ClientAttackData
   | ClientRandomAttack;

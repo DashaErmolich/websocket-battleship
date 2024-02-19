@@ -7,7 +7,7 @@ export interface ServerRegData {
   errorText: string;
 }
 
-export interface ServerUpdateWinnersData {
+export interface ServerUpdateWinnersDataItem {
   name: string;
   wins: number;
 }
@@ -49,7 +49,7 @@ export interface ServerFinishData {
 
 export type ServerData =
   | ServerRegData
-  | ServerUpdateWinnersData
+  | ServerUpdateWinnersDataItem[]
   | ServerCreateGameData
   | ServerUpdateRoomDataItem[]
   | ServerStartGameData

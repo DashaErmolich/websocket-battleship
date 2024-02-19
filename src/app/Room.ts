@@ -3,13 +3,13 @@ import { GameRoom } from '../models/room.model';
 
 export class Room implements GameRoom {
   id: number;
-  users: GamePlayer[] = [];
+  players: GamePlayer[] = [];
 
   constructor(index: number) {
     this.id = index;
   }
 
-  addUser(user: GamePlayer): void {
-    this.users.push(user);
+  addPlayer(player: GamePlayer): void {
+    this.players.push(player);
   }
 }

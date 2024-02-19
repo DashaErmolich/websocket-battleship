@@ -4,8 +4,10 @@ import { ClientData } from '../models/client-data.model';
 import {
   ServerData,
   ServerUpdateRoomDataItem,
+  ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
 import { Room } from '../app/Room';
+import { Player } from '../app/Player';
 
 export function parseRawData(raw: RawData): WSMessage {
   const msg: WSMessage = JSON.parse(raw.toString());
@@ -24,6 +26,20 @@ export function stringifyData<T>(data: T): string {
 export function mapRooms(rooms: Room[]): ServerUpdateRoomDataItem[] {
   return rooms.map((room) => ({
     roomId: room.id,
-    roomUsers: room.users.map((user) => ({ name: user.name, index: user.index })),
+    roomUsers: room.players.map((user) => ({
+      name: user.name,
+      index: user.index,
+    })),
   }));
+}
+
+export function mapWinners(players: Player[]): ServerUpdateWinnersDataItem[] {
+  return players.map((player) => ({
+    name: player.name,
+    wins: player.wins,
+  }));
+}
+
+export function getSize<T extends Object>(obj: T): number {
+  return Object.entries(obj).length;
 }
