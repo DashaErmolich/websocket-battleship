@@ -7,9 +7,20 @@ import { Room } from './Room';
 export class Game {
   id: number;
   room: GameRoom;
+  isReadyCounter: number;
 
   constructor(room: GameRoom, index: number) {
     this.id = index;
     this.room = room;
+    this.isReadyCounter = 0;
+  }
+
+  prepare() {
+    this.isReadyCounter++;
+
+  }
+
+  isReady(): boolean {
+    return this.isReadyCounter === 2;
   }
 }
