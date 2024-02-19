@@ -1,11 +1,15 @@
-import { RoomUser } from '../models/player.model';
+import { GamePlayer } from '../models/player.model';
 import { GameRoom } from '../models/room.model';
 
 export class Room implements GameRoom {
-  id: string;
-  users: RoomUser[] = [];
+  id: number;
+  users: GamePlayer[] = [];
 
-  constructor() {
-    this.id = crypto.randomUUID();
+  constructor(index: number) {
+    this.id = index;
+  }
+
+  addUser(user: GamePlayer): void {
+    this.users.push(user);
   }
 }

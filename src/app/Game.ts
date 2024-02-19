@@ -7,14 +7,9 @@ import { Room } from './Room';
 export class Game {
   id: number;
   room: GameRoom;
-  players: GamePlayer[] = [];
 
   constructor(room: GameRoom, index: number) {
     this.id = index;
     this.room = room;
-  }
-
-  addPlayer(player: GamePlayer): void {
-    this.players.push(player);
   }
 }

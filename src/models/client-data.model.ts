@@ -9,7 +9,7 @@ export interface ClientCreateRoomData {
 }
 
 export interface ClientAddUserToRoomData {
-  indexRoom: string;
+  indexRoom: number;
 }
 
 export interface Ships {

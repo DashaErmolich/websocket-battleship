@@ -10,4 +10,4 @@ export interface GamePlayer extends PlayerLoginData {
   wins: number;
   ws: WebSocket;
 }
-export type RoomUser = Pick<GamePlayer, 'name' | 'index'>;
+// export type RoomUser = Pick<GamePlayer, 'name' | 'index'>;
