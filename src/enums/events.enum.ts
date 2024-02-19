@@ -22,28 +22,4 @@ export enum GameEventType {
   Finish = 'finish',
 }
 
-// export interface Message {
-//   type: PlayerEventType
-// }
-
-export interface ClientPlayerData {
-  name: string,
-  password: string,
-}
-
-export interface ServerPlayerData {
-  name: string,
-  index: number,
-  error: boolean,
-  errorText: string,
-}
-
-export interface ClientWinnerData {
-  name: string,
-  wins: number,
-}
-
-export interface ClientRoomData {
-  data: string,
-  id: number,
-}
+export type EventType = PlayerEventType | RoomEventType | ShipsEventType | GameEventType;
