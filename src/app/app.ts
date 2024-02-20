@@ -10,16 +10,21 @@ import {
 import { WSMessage } from '../models/message.model';
 import { EventType } from '../enums/events.enum';
 import {
+  ClientAddShipsData,
   ClientAddUserToRoomData,
   ClientCreateRoomData,
   ClientRegData,
 } from '../models/client-data.model';
 import {
+  ServerCreateGameData,
   ServerRegData,
+  ServerStartGameData,
   ServerUpdateRoomDataItem,
   ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
 import { Room } from './Room';
+import { Game } from './Game';
+import { platform } from 'os';
 
 export interface AppData<T> {
   [id: string]: T;
@@ -32,10 +37,13 @@ export class App {
 
   rooms: Room[];
 
+  games: Game[];
+
   constructor(wss: WebSocketServer) {
     this.wss = wss;
     this.clients = {};
     this.rooms = [];
+    this.games = [];
   }
 
   public start() {
@@ -48,13 +56,6 @@ export class App {
         switch (msg.type) {
           case EventType.LoginOrCreate:
             this.registerPlayer(msg.data as ClientRegData, clientId, ws);
-
-            this.sendMessage<ServerRegData>(
-              ws,
-              EventType.LoginOrCreate,
-              msg.data as ServerRegData,
-            );
-
             this.updateRooms();
             this.updateWinners();
 
@@ -71,9 +72,21 @@ export class App {
             const player = this.clients[clientId];
             if (room && player && !room.players.includes(player)) {
               this.addPlayerToRoom(room, clientId);
+              this.createGame(room, player.index);
               this.updateRooms();
             }
             break;
+          }
+          case EventType.AddShips: {
+            const data = msg.data as ClientAddShipsData;
+            const game = this.getGame(data.gameId);
+            if (game) {
+              game.prepare();
+
+              if (game.isReady()) {
+                this.startGame(game, data);
+              }
+            }
           }
         }
       });
@@ -84,6 +97,13 @@ export class App {
     if (!this.clients[id]) {
       const player: Player = new Player(data, getSize(this.clients), ws);
       this.clients[id] = player;
+
+      this.sendMessage<ServerRegData>(ws, EventType.LoginOrCreate, {
+        name: player.name,
+        index: player.index,
+        error: false,
+        errorText: '',
+      });
     }
   }
 
@@ -112,15 +132,15 @@ export class App {
 
   private updateRooms() {
     const data: ServerUpdateRoomDataItem[] = mapRooms(this.getAvailableRooms());
-    this.broadcast<ServerUpdateRoomDataItem[]>(EventType.UpdateRoom, data);
+    this.broadcastAll<ServerUpdateRoomDataItem[]>(EventType.UpdateRoom, data);
   }
 
   private updateWinners() {
     const data: ServerUpdateWinnersDataItem[] = mapWinners(this.getWinners());
-    this.broadcast<ServerUpdateWinnersDataItem[]>(EventType.WinnerUpdate, data);
+    this.broadcastAll<ServerUpdateWinnersDataItem[]>(EventType.WinnerUpdate, data);
   }
 
-  private broadcast<T>(event: EventType, data: T) {
+  private broadcastAll<T>(event: EventType, data: T) {
     this.wss.clients.forEach((ws: WebSocket) => {
       this.sendMessage<T>(ws, event, data);
     });
@@ -132,5 +152,31 @@ export class App {
 
   private getAvailableRooms() {
     return Object.values(this.rooms).filter((room) => room.players.length < 2);
+  }
+
+  private broadcastRoomPlayers<T>(players: Player[], event: EventType, data: T): void {
+    players.map((pl) => pl.ws).forEach((ws: WebSocket) => {
+      this.sendMessage<T>(ws, event, data);
+    });
+  }
+
+  private createGame(room: Room, playerIndex: number): void {
+    const game = new Game(room, getSize(this.rooms));
+    this.games.push(game);
+    this.broadcastRoomPlayers<ServerCreateGameData>(room.players, EventType.CreateGame, {
+      idGame: game.id,
+      idPlayer: playerIndex,
+    });
+  }
+
+  private getGame(gameId: number): Game | undefined {
+    return this.games.find((game) => game.id === gameId);
+  }
+
+  private startGame(game: Game, clientData: ClientAddShipsData) {
+    this.broadcastRoomPlayers<ServerStartGameData>(game.room.players, EventType.StartGame, {
+      ships: clientData.ships,
+      currentPlayerIndex: clientData.indexPlayer
+    })
   }
 }

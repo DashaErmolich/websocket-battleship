@@ -137,39 +137,39 @@ export const wss = new WebSocketServer(
 //             );
 //           });
 
-//           ws.send(
-//             stringifyData({
-//               type: EventType.UpdateRoom,
-//               data: stringifyData<ServerUpdateRoomDataItem[]>(mapRooms(rooms)),
-//               id: 0,
-//             }),
-//           );
+          // ws.send(
+          //   stringifyData({
+          //     type: EventType.UpdateRoom,
+          //     data: stringifyData<ServerUpdateRoomDataItem[]>(mapRooms(rooms)),
+          //     id: 0,
+          //   }),
+          // );
 //         }
 //         break;
 //       case EventType.AddShips:
-//         const data1 = msg.data as ClientAddShipsData;
-//         const game = games.find((v) => v.id === data1.gameId);
-//         if (game) {
-//           game.prepare();
+        // const data1 = msg.data as ClientAddShipsData;
+        // const game = games.find((v) => v.id === data1.gameId);
+        // if (game) {
+        //   game.prepare();
 
-//           if (game.isReady()) {
-//             game.room.users.forEach((user) => {
-//               const client = connections.find(
-//                 (v) => v.player.index === user.index,
-//               );
-//               client?.player.ws.send(
-//                 stringifyData({
-//                   type: EventType.StartGame,
-//                   data: stringifyData<ServerStartGameData>({
-//                     ships: data1.ships,
-//                     currentPlayerIndex: currentUser.index,
-//                   }),
-//                   id: 0,
-//                 }),
-//               );
-//             });
-//           }
-//         }
+        //   if (game.isReady()) {
+        //     game.room.users.forEach((user) => {
+        //       const client = connections.find(
+        //         (v) => v.player.index === user.index,
+        //       );
+        //       client?.player.ws.send(
+        //         stringifyData({
+        //           type: EventType.StartGame,
+        //           data: stringifyData<ServerStartGameData>({
+        //             ships: data1.ships,
+        //             currentPlayerIndex: currentUser.index,
+        //           }),
+        //           id: 0,
+        //         }),
+        //       );
+        //     });
+        //   }
+        // }
 //         break;
 //       case EventType.Attack: {
 //         const data = msg.data as ClientAttackData;
