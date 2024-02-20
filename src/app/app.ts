@@ -12,7 +12,6 @@ import { EventType } from '../enums/events.enum';
 import {
   ClientAddShipsData,
   ClientAddUserToRoomData,
-  ClientCreateRoomData,
   ClientRegData,
 } from '../models/client-data.model';
 import {
@@ -24,7 +23,6 @@ import {
 } from '../models/server-data.model';
 import { Room } from './Room';
 import { Game } from './Game';
-import { platform } from 'os';
 
 export interface AppData<T> {
   [id: string]: T;
