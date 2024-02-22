@@ -25,7 +25,7 @@ import {
   ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
 import { Room } from './Room';
-import { Game } from './Game';
+import { CellData, Game } from './Game';
 import { AttackStatus } from '../enums/attack-status.enum';
 
 export interface AppData<T> {
@@ -93,22 +93,32 @@ export class App {
           }
           case EventType.Attack: {
             const data = msg.data as ClientAttackData;
-            const attackResult = this.attack(data);
             const player = this.clients[clientId];
 
-            //fo one
-            this.sendMessage<ServerAttackData>(ws, EventType.Attack, {
-              status: attackResult,
-              currentPlayer: player!.index,
-              position: {
-                x: data.x,
-                y: data.y,
-              },
+            const attackResult: ServerAttackData[] = this.attack(data).map(
+              (v) => ({
+                ...v,
+                currentPlayer: player!.index,
+              }),
+            );
+
+            attackResult.forEach((res: ServerAttackData) => {
+              this.sendMessage<ServerAttackData>(ws, EventType.Attack, res);
             });
 
-            if (attackResult !== AttackStatus.Miss) {
-              this.turn(this.getGame(data.gameId)!, data);
-            }
+            // //fo one
+            // this.sendMessage<ServerAttackData>(ws, EventType.Attack, {
+            //   status: attackResult,
+            //   currentPlayer: player!.index,
+            //   position: {
+            //     x: data.x,
+            //     y: data.y,
+            //   },
+            // });
+
+            // if (attackResult !== AttackStatus.Miss) {
+            //   this.turn(this.getGame(data.gameId)!, data);
+            // }
           }
         }
       });
@@ -228,8 +238,8 @@ export class App {
     );
   }
 
-  private attack(data: ClientAttackData): AttackStatus {
+  private attack(data: ClientAttackData): CellData[] {
     const game = this.getGame(data.gameId);
-    return game!.checkAttack(data);
+    return game!.checkAttack(data); //TODO
   }
 }

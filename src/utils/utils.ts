@@ -1,8 +1,6 @@
 import { RawData } from 'ws';
 import { WSMessage } from '../models/message.model';
-import { ClientData } from '../models/client-data.model';
 import {
-  ServerData,
   ServerUpdateRoomDataItem,
   ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
@@ -45,6 +43,11 @@ export function getSize<T extends Object>(obj: T): number {
   return Object.entries(obj).length;
 }
 
-export function setCellValue(grid: string[][], y: number, x: number) {
-  grid[y]![x] = GridCell.Ship;
+export function setCellValue(
+  grid: string[][],
+  y: number,
+  x: number,
+  value: GridCell,
+) {
+  grid[y]![x] = value;
 }

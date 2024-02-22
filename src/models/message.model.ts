@@ -1,6 +1,4 @@
-import {
-  EventType,
-} from '../enums/events.enum';
+import { EventType } from '../enums/events.enum';
 import { ClientData } from './client-data.model';
 import { ServerData } from './server-data.model';
 

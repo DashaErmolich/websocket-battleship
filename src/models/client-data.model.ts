@@ -11,11 +11,13 @@ export interface ClientAddUserToRoomData {
   indexRoom: number;
 }
 
+export interface Coordinates {
+  x: number;
+  y: number;
+}
+
 export interface Ship {
-  position: {
-    x: number;
-    y: number;
-  };
+  position: Coordinates;
   direction: boolean;
   length: number;
   type: 'small' | 'medium' | 'large' | 'huge';
@@ -27,10 +29,8 @@ export interface ClientAddShipsData {
   indexPlayer: number;
 }
 
-export interface ClientAttackData {
+export interface ClientAttackData extends Coordinates {
   gameId: number;
-  x: number;
-  y: number;
   indexPlayer: number;
 }
 
