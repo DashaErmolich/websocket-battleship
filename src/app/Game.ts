@@ -11,7 +11,7 @@ import { setCellValue } from '../utils/utils';
 import { ServerAttackData } from '../models/server-data.model';
 import { Direction } from '../enums/direction-enum';
 
-export type CellData = Omit<ServerAttackData, 'currentPlayer'>;
+type CellData = Omit<ServerAttackData, 'currentPlayer'>;
 
 interface CellNeighbors {
   direction: Direction;
@@ -33,6 +33,7 @@ export class Game {
   id: number;
   room: GameRoom;
   players: GamePlayer[] = [];
+  currentPlayerIndex: number | null;
 
   constructor(room: GameRoom, index: number) {
     this.id = index;
@@ -51,6 +52,7 @@ export class Game {
         grid: null,
       },
     ];
+    this.currentPlayerIndex = null;
   }
 
   setGameShips(ships: Ship[], playerIndex: number): void {
@@ -66,24 +68,25 @@ export class Game {
     return this.players.every((v) => v.ships !== null);
   }
 
-  checkAttack(data: ClientAttackData): CellData[] {
-    // const current = this.players.find((pl) => pl.index === data.indexPlayer);
+  checkAttack(data: ClientAttackData): CellData[] | null {
     const opponent = this.players.find((pl) => pl.index !== data.indexPlayer);
 
-    // let status = AttackStatus.Miss;
-
-    const attackResult: CellData = {
-      position: { x: data.x, y: data.y },
-      status: AttackStatus.Miss,
-    };
+    let attackResult: CellData | null = null;
 
     if (opponent && opponent.grid) {
       const targetPosition = { x: data.x, y: data.y };
+      const targetCell = opponent.grid[targetPosition.y]![targetPosition.x];
 
-      if (
-        opponent.grid[targetPosition.y]![targetPosition.x] === GridCell.Ship
-      ) {
-        attackResult.status = AttackStatus.Shot;
+      if (targetCell === GridCell.Shot || targetCell === GridCell.Miss) {
+        return null;
+      }
+
+      if (targetCell === GridCell.Ship) {
+        attackResult = {
+          status: AttackStatus.Shot,
+          position: targetPosition,
+        };
+
         setCellValue(opponent.grid, data.y, data.x, GridCell.Shot);
 
         if (this.isKilled(opponent.grid, targetPosition)) {
@@ -92,14 +95,30 @@ export class Game {
             targetPosition,
           );
 
+          attackResult.forEach((res) => {
+            setCellValue(
+              opponent.grid!,
+              res.position.y,
+              res.position.x,
+              res.status === AttackStatus.Killed
+                ? GridCell.Shot
+                : GridCell.Miss,
+            );
+          });
+
           return attackResult;
         }
       } else {
+        attackResult = {
+          status: AttackStatus.Miss,
+          position: targetPosition,
+        };
+
         setCellValue(opponent.grid, data.y, data.x, GridCell.Miss);
       }
+      return [attackResult];
     }
-
-    return [attackResult];
+    return null;
   }
 
   createGrid<T>(filler: T, size = 10): T[][] {
@@ -149,11 +168,6 @@ export class Game {
       y: number;
     },
   ): boolean {
-    // const up = grid[target.y - 1] ? grid[target.y - 1]![target.x] : undefined;
-    // const down = grid[target.y + 1] ? grid[target.y + 1]![target.x] : undefined;
-    // const left = grid[target.y]![target.x - 1];
-    // const right = grid[target.y]![target.x + 1];
-
     const checkData = this.getNeighbors(grid, target).filter(
       (v) => v.value !== undefined,
     );
@@ -161,14 +175,6 @@ export class Game {
   }
 
   private getResults(grid: GridCell[][], target: Coordinates) {
-    // const up: GridCell | undefined = grid[target.y - 1]
-    //   ? grid[target.y - 1]![target.x]
-    //   : undefined;
-    // const down: GridCell | undefined = grid[target.y + 1]
-    //   ? grid[target.y + 1]![target.x]
-    //   : undefined;
-    // const left: GridCell | undefined = grid[target.y]![target.x - 1];
-    // const right: GridCell | undefined = grid[target.y]![target.x + 1];
     const neighbors: CellNeighbors[] = this.getNeighbors(grid, target);
 
     const direction: boolean = neighbors
@@ -347,5 +353,14 @@ export class Game {
 
   getRightCell(grid: GridCell[][], target: Coordinates): GridCell | undefined {
     return grid[target.y]![target.x + 1];
+  }
+
+  changeCurrentPlayer(playerIndex: number): void {
+    const nextPlayerIndex = this.players.find(
+      (pl) => pl.index !== playerIndex,
+    )?.index;
+    if (nextPlayerIndex !== undefined) {
+      this.currentPlayerIndex = nextPlayerIndex;
+    }
   }
 }

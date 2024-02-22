@@ -25,7 +25,7 @@ import {
   ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
 import { Room } from './Room';
-import { CellData, Game } from './Game';
+import { Game } from './Game';
 import { AttackStatus } from '../enums/attack-status.enum';
 
 export interface AppData<T> {
@@ -86,7 +86,8 @@ export class App {
               game.setGameShips(data.ships, data.indexPlayer);
               if (game.isReady()) {
                 this.startGame(game, data);
-                this.turn(game, data);
+                game.changeCurrentPlayer(data.indexPlayer);
+                this.turn(game);
               }
             }
             break;
@@ -94,31 +95,30 @@ export class App {
           case EventType.Attack: {
             const data = msg.data as ClientAttackData;
             const player = this.clients[clientId];
+            const game = this.getGame(data.gameId);
 
-            const attackResult: ServerAttackData[] = this.attack(data).map(
-              (v) => ({
-                ...v,
-                currentPlayer: player!.index,
-              }),
-            );
+            if (game && player && game.currentPlayerIndex === player.index) {
+              const attackResults: ServerAttackData[] | null = this.attack(
+                data,
+                player.index,
+              );
 
-            attackResult.forEach((res: ServerAttackData) => {
-              this.sendMessage<ServerAttackData>(ws, EventType.Attack, res);
-            });
+              if (attackResults !== null) {
+                attackResults.forEach((res: ServerAttackData) => {
+                  this.sendMessage<ServerAttackData>(ws, EventType.Attack, res);
+                });
 
-            // //fo one
-            // this.sendMessage<ServerAttackData>(ws, EventType.Attack, {
-            //   status: attackResult,
-            //   currentPlayer: player!.index,
-            //   position: {
-            //     x: data.x,
-            //     y: data.y,
-            //   },
-            // });
+                const target = attackResults.find(
+                  (v) => v.position.x === data.x && v.position.y === data.y,
+                );
 
-            // if (attackResult !== AttackStatus.Miss) {
-            //   this.turn(this.getGame(data.gameId)!, data);
-            // }
+                if (target && target.status === AttackStatus.Miss) {
+                  game.changeCurrentPlayer(data.indexPlayer);
+                }
+
+                this.turn(game);
+              }
+            }
           }
         }
       });
@@ -228,18 +228,28 @@ export class App {
     );
   }
 
-  private turn(game: Game, clientData: ClientAddShipsData | ClientAttackData) {
+  private turn(game: Game) {
     this.broadcastRoomPlayers<ServerTurnData>(
       game.room.players,
       EventType.Turn,
       {
-        currentPlayer: clientData.indexPlayer,
+        currentPlayer: game.currentPlayerIndex!,
       },
     );
   }
 
-  private attack(data: ClientAttackData): CellData[] {
+  private attack(
+    data: ClientAttackData,
+    playerIndex: number,
+  ): ServerAttackData[] | null {
     const game = this.getGame(data.gameId);
-    return game!.checkAttack(data); //TODO
+    const result = game!.checkAttack(data);
+    if (result) {
+      return result.map((v) => ({
+        ...v,
+        currentPlayer: playerIndex,
+      }));
+    }
+    return result;
   }
 }
