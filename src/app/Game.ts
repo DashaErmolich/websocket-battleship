@@ -27,6 +27,7 @@ interface GamePlayer {
   ws?: WebSocket;
   ships: GameShip[] | null;
   grid: GridCell[][] | null;
+  points: number;
 }
 
 export class Game {
@@ -44,12 +45,14 @@ export class Game {
         ws: room.players[0]?.ws,
         ships: null,
         grid: null,
+        points: 0,
       },
       {
         index: room.players[1]?.index,
         ws: room.players[1]?.ws,
         ships: null,
         grid: null,
+        points: 0,
       },
     ];
     this.currentPlayerIndex = null;
@@ -105,6 +108,8 @@ export class Game {
                 : GridCell.Miss,
             );
           });
+
+          opponent.points += 1;
 
           return attackResult;
         }
@@ -361,6 +366,15 @@ export class Game {
     )?.index;
     if (nextPlayerIndex !== undefined) {
       this.currentPlayerIndex = nextPlayerIndex;
+    }
+  }
+
+  getWinnerIndex(): number | null {
+    const loser = this.players.find((pl) => pl.points === 10);
+    if (loser) {
+      return this.players.find((pl) => pl.index !== loser.index)!.index!;
+    } else {
+      return null;
     }
   }
 }

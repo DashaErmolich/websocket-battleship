@@ -18,6 +18,7 @@ import {
 import {
   ServerAttackData,
   ServerCreateGameData,
+  ServerFinishData,
   ServerRegData,
   ServerStartGameData,
   ServerTurnData,
@@ -116,7 +117,12 @@ export class App {
                   game.changeCurrentPlayer(data.indexPlayer);
                 }
 
-                this.turn(game);
+                const winnerIndex = game.getWinnerIndex();
+                if (winnerIndex === null) {
+                  this.turn(game);
+                } else {
+                  this.finishGame(game, winnerIndex, clientId);
+                }
               }
             }
           }
@@ -251,5 +257,13 @@ export class App {
       }));
     }
     return result;
+  }
+
+  private finishGame(game: Game, winnerIndex: number, clientId: string): void {
+    this.broadcastRoomPlayers(game.room.players, EventType.Finish, {
+      winPlayer: winnerIndex,
+    });
+    this.clients[clientId]!.wins += 1;
+    this.updateWinners();
   }
 }
