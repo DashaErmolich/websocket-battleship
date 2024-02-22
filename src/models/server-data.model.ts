@@ -1,4 +1,4 @@
-import { Ships } from './client-data.model';
+import { Ship } from './client-data.model';
 
 export interface ServerRegData {
   name: string;
@@ -26,7 +26,7 @@ export interface ServerUpdateRoomDataItem {
 }
 
 export interface ServerStartGameData {
-  ships: Ships[];
+  ships: Ship[];
   currentPlayerIndex: number;
 }
 

@@ -8,6 +8,7 @@ import {
 } from '../models/server-data.model';
 import { Room } from '../app/Room';
 import { Player } from '../app/Player';
+import { GridCell } from '../enums/grid-cell.enum';
 
 export function parseRawData(raw: RawData): WSMessage {
   const msg: WSMessage = JSON.parse(raw.toString());
@@ -42,4 +43,8 @@ export function mapWinners(players: Player[]): ServerUpdateWinnersDataItem[] {
 
 export function getSize<T extends Object>(obj: T): number {
   return Object.entries(obj).length;
+}
+
+export function setCellValue(grid: string[][], y: number, x: number) {
+  grid[y]![x] = GridCell.Ship;
 }

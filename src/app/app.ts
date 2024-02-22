@@ -12,17 +12,21 @@ import { EventType } from '../enums/events.enum';
 import {
   ClientAddShipsData,
   ClientAddUserToRoomData,
+  ClientAttackData,
   ClientRegData,
 } from '../models/client-data.model';
 import {
+  ServerAttackData,
   ServerCreateGameData,
   ServerRegData,
   ServerStartGameData,
+  ServerTurnData,
   ServerUpdateRoomDataItem,
   ServerUpdateWinnersDataItem,
 } from '../models/server-data.model';
 import { Room } from './Room';
 import { Game } from './Game';
+import { AttackStatus } from '../enums/attack-status.enum';
 
 export interface AppData<T> {
   [id: string]: T;
@@ -70,7 +74,7 @@ export class App {
             const player = this.clients[clientId];
             if (room && player && !room.players.includes(player)) {
               this.addPlayerToRoom(room, clientId);
-              this.createGame(room, player.index);
+              this.createGame(room);
               this.updateRooms();
             }
             break;
@@ -79,11 +83,31 @@ export class App {
             const data = msg.data as ClientAddShipsData;
             const game = this.getGame(data.gameId);
             if (game) {
-              game.prepare();
-
+              game.setGameShips(data.ships, data.indexPlayer);
               if (game.isReady()) {
                 this.startGame(game, data);
+                this.turn(game, data);
               }
+            }
+            break;
+          }
+          case EventType.Attack: {
+            const data = msg.data as ClientAttackData;
+            const attackResult = this.attack(data);
+            const player = this.clients[clientId];
+
+            //fo one
+            this.sendMessage<ServerAttackData>(ws, EventType.Attack, {
+              status: attackResult,
+              currentPlayer: player!.index,
+              position: {
+                x: data.x,
+                y: data.y,
+              },
+            });
+
+            if (attackResult !== AttackStatus.Miss) {
+              this.turn(this.getGame(data.gameId)!, data);
             }
           }
         }
@@ -135,7 +159,10 @@ export class App {
 
   private updateWinners() {
     const data: ServerUpdateWinnersDataItem[] = mapWinners(this.getWinners());
-    this.broadcastAll<ServerUpdateWinnersDataItem[]>(EventType.WinnerUpdate, data);
+    this.broadcastAll<ServerUpdateWinnersDataItem[]>(
+      EventType.WinnerUpdate,
+      data,
+    );
   }
 
   private broadcastAll<T>(event: EventType, data: T) {
@@ -152,18 +179,27 @@ export class App {
     return Object.values(this.rooms).filter((room) => room.players.length < 2);
   }
 
-  private broadcastRoomPlayers<T>(players: Player[], event: EventType, data: T): void {
-    players.map((pl) => pl.ws).forEach((ws: WebSocket) => {
-      this.sendMessage<T>(ws, event, data);
-    });
+  private broadcastRoomPlayers<T>(
+    players: Player[],
+    event: EventType,
+    data: T,
+  ): void {
+    players
+      .map((pl) => pl.ws)
+      .forEach((ws: WebSocket) => {
+        this.sendMessage<T>(ws, event, data);
+      });
   }
 
-  private createGame(room: Room, playerIndex: number): void {
+  private createGame(room: Room): void {
     const game = new Game(room, getSize(this.rooms));
     this.games.push(game);
-    this.broadcastRoomPlayers<ServerCreateGameData>(room.players, EventType.CreateGame, {
-      idGame: game.id,
-      idPlayer: playerIndex,
+
+    room.players.forEach((pl: Player) => {
+      this.sendMessage<ServerCreateGameData>(pl.ws, EventType.CreateGame, {
+        idGame: game.id,
+        idPlayer: pl.index,
+      });
     });
   }
 
@@ -172,9 +208,28 @@ export class App {
   }
 
   private startGame(game: Game, clientData: ClientAddShipsData) {
-    this.broadcastRoomPlayers<ServerStartGameData>(game.room.players, EventType.StartGame, {
-      ships: clientData.ships,
-      currentPlayerIndex: clientData.indexPlayer
-    })
+    this.broadcastRoomPlayers<ServerStartGameData>(
+      game.room.players,
+      EventType.StartGame,
+      {
+        ships: clientData.ships,
+        currentPlayerIndex: clientData.indexPlayer,
+      },
+    );
+  }
+
+  private turn(game: Game, clientData: ClientAddShipsData | ClientAttackData) {
+    this.broadcastRoomPlayers<ServerTurnData>(
+      game.room.players,
+      EventType.Turn,
+      {
+        currentPlayer: clientData.indexPlayer,
+      },
+    );
+  }
+
+  private attack(data: ClientAttackData): AttackStatus {
+    const game = this.getGame(data.gameId);
+    return game!.checkAttack(data);
   }
 }

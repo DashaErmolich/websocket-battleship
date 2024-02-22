@@ -11,7 +11,7 @@ export interface ClientAddUserToRoomData {
   indexRoom: number;
 }
 
-export interface Ships {
+export interface Ship {
   position: {
     x: number;
     y: number;
@@ -23,7 +23,7 @@ export interface Ships {
 
 export interface ClientAddShipsData {
   gameId: number;
-  ships: Ships[];
+  ships: Ship[];
   indexPlayer: number;
 }
 
