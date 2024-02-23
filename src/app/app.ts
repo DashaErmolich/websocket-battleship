@@ -1,11 +1,14 @@
 import { RawData, WebSocket, WebSocketServer } from 'ws';
 import { Player } from './Player';
 import {
+  getMessage,
   getSize,
+  getUUID,
+  isPlayerInRoom,
+  mapAttackResults,
   mapRooms,
   mapWinners,
   parseRawData,
-  stringifyData,
 } from '../utils/utils';
 import { WSMessage } from '../models/message.model';
 import { EventType } from '../enums/events.enum';
@@ -27,8 +30,6 @@ import {
 } from '../models/server-data.model';
 import { Room } from './Room';
 import { Game } from './Game';
-import { AttackStatus } from '../enums/attack-status.enum';
-import { OPPONENT_PLAYER_SHIPS, getBotAttack } from '../mock/mock';
 
 export interface AppData<T> {
   [id: string]: T;
@@ -39,29 +40,30 @@ export class App {
 
   clients: AppData<Player>;
 
-  rooms: Room[];
+  rooms: AppData<Room>;
 
   games: Game[];
 
   constructor(wss: WebSocketServer) {
     this.wss = wss;
     this.clients = {};
-    this.rooms = [];
+    this.rooms = {};
     this.games = [];
   }
 
   public start() {
     this.wss.on('connection', (ws: WebSocket) => {
-      const clientId = crypto.randomUUID();
+      const clientId = getUUID();
 
       ws.on('error', console.error);
 
       ws.on('close', () => {
-        delete this.clients[clientId];
+        this.deleteClient(clientId);
       });
 
       ws.on('message', (rawData: RawData) => {
         const msg: WSMessage = parseRawData(rawData);
+        const player: Player | undefined = this.getPlayer(clientId);
 
         switch (msg.type) {
           case EventType.LoginOrCreate:
@@ -72,29 +74,35 @@ export class App {
             break;
           case EventType.CreateRoom: {
             const room = this.createRoom();
-            this.addPlayerToRoom(room, clientId);
-            this.updateRooms();
+            if (player) {
+              this.addPlayerToRoom(room, { ...player });
+              this.updateRooms();
+            }
             break;
           }
           case EventType.AddUserToRoom: {
             const roomId = (msg.data as ClientAddUserToRoomData).indexRoom;
-            const room = this.rooms.find((room) => room.id === roomId);
-            const player = this.clients[clientId];
-            if (room && player && !room.players.includes(player)) {
-              this.addPlayerToRoom(room, clientId);
+            const room = this.getRoom(roomId);
+
+            if (room && player && !isPlayerInRoom(room.players, player.index)) {
+              this.addPlayerToRoom(room, { ...player });
               this.createGame(room);
+              this.deleteRoom(room.index);
               this.updateRooms();
+              console.log(this.games);
             }
             break;
           }
           case EventType.AddShips: {
             const data = msg.data as ClientAddShipsData;
             const game = this.getGame(data.gameId);
+
             if (game) {
               game.setGameShips(data.ships, data.indexPlayer);
+
               if (game.isReady()) {
+                game.setNextPlayerIndex(data.indexPlayer);
                 this.startGame(game, data);
-                game.changeCurrentPlayer(data.indexPlayer);
                 this.turn(game);
               }
             }
@@ -102,57 +110,35 @@ export class App {
           }
           case EventType.Attack: {
             const data = msg.data as ClientAttackData;
-            // const player = this.clients[clientId];
             const game = this.getGame(data.gameId);
 
-            // if (game && player && game.currentPlayerIndex === player.index) {
-            if (game) {
-              const attackResults: ServerAttackData[] | null = this.attack(
-                data,
-                data.indexPlayer,
-              );
-
-              if (attackResults !== null) {
-                attackResults.forEach((res: ServerAttackData) => {
-                  this.sendMessage<ServerAttackData>(ws, EventType.Attack, res);
-                });
-
-                const target = attackResults.find(
-                  (v) => v.position.x === data.x && v.position.y === data.y,
-                );
-
-                if (target && target.status === AttackStatus.Miss) {
-                  game.changeCurrentPlayer(data.indexPlayer);
-                }
-
-                const winnerIndex = game.getWinnerIndex();
-                if (winnerIndex === null) {
-                  this.turn(game);
-                } else {
-                  this.finishGame(game, winnerIndex, clientId);
-                }
-              }
+            if (
+              player &&
+              game &&
+              game.currentPlayerIndex === data.indexPlayer
+            ) {
+              this.attack(game, data, player);
             }
             break;
           }
-          case EventType.SinglePlay: {
-            const room = this.createRoom();
-            this.addPlayerToRoom(room, clientId);
-            const game = this.createGame(room);
-            const BOT_INDEX = 9999;
-            game.setBotIndex(BOT_INDEX);
-            game.setGameShips(OPPONENT_PLAYER_SHIPS, BOT_INDEX);
-            // TODO
-            const botAttack: ClientAttackData = getBotAttack(
-              game.id,
-              BOT_INDEX,
-            );
+          // case EventType.SinglePlay: {
+          //   const room = this.createRoom();
+          //   this.addPlayerToRoom(room, clientId);
+          //   const game = this.createGame(room);
+          //   const BOT_INDEX = 9999;
+          //   game.setBotIndex(BOT_INDEX);
+          //   game.setGameShips(OPPONENT_PLAYER_SHIPS, BOT_INDEX);
+          //   // TODO
+          //   const botAttack: ClientAttackData = getBotAttack(
+          //     game.id,
+          //     BOT_INDEX,
+          //   );
 
-            ws.emit(
-              'message',
-              this.getMessage<ClientAttackData>(EventType.Attack, botAttack),
-            );
-          }
+          //   ws.emit(
+          //     'message',
+          //     this.getMessage<ClientAttackData>(EventType.Attack, botAttack),
+          //   );
+          // }
         }
       });
     });
@@ -174,27 +160,16 @@ export class App {
 
   private createRoom(): Room {
     const room = new Room(getSize(this.rooms));
-    this.rooms.push(room);
+    this.setRoom(room.index, room);
     return room;
   }
 
-  private addPlayerToRoom(room: Room, clientId: string): void {
-    const client = this.clients[clientId];
-    if (client) {
-      room.addPlayer(client);
-    }
+  private addPlayerToRoom(room: Room, player: Player): void {
+    room.addPlayer(player);
   }
 
   private sendMessage<T>(ws: WebSocket, event: EventType, data: T): void {
-    ws.send(this.getMessage<T>(event, data));
-  }
-
-  private getMessage<T>(event: EventType, data: T): string {
-    return stringifyData({
-      type: event,
-      data: stringifyData<T>(data),
-      id: 0,
-    });
+    ws.send(getMessage<T>(event, data));
   }
 
   private updateRooms() {
@@ -224,7 +199,7 @@ export class App {
     return Object.values(this.rooms).filter((room) => room.players.length < 2);
   }
 
-  private broadcastRoomPlayers<T>(
+  private broadcastGamePlayers<T>(
     players: Player[],
     event: EventType,
     data: T,
@@ -237,10 +212,10 @@ export class App {
   }
 
   private createGame(room: Room): Game {
-    const game = new Game(room, getSize(this.rooms));
+    const game = new Game({ ...room }, getSize(this.games));
     this.games.push(game);
 
-    room.players.forEach((pl: Player) => {
+    game.players.forEach((pl: Player) => {
       this.sendMessage<ServerCreateGameData>(pl.ws, EventType.CreateGame, {
         idGame: game.id,
         idPlayer: pl.index,
@@ -255,8 +230,8 @@ export class App {
   }
 
   private startGame(game: Game, clientData: ClientAddShipsData) {
-    this.broadcastRoomPlayers<ServerStartGameData>(
-      game.room.players,
+    this.broadcastGamePlayers<ServerStartGameData>(
+      game.players,
       EventType.StartGame,
       {
         ships: clientData.ships,
@@ -266,39 +241,66 @@ export class App {
   }
 
   private turn(game: Game) {
-    this.broadcastRoomPlayers<ServerTurnData>(
-      game.room.players,
-      EventType.Turn,
-      {
-        currentPlayer: game.currentPlayerIndex!,
-      },
-    );
+    this.broadcastGamePlayers<ServerTurnData>(game.players, EventType.Turn, {
+      currentPlayer: game.currentPlayerIndex!, //TODO
+    });
   }
 
-  private attack(
-    data: ClientAttackData,
-    playerIndex: number,
-  ): ServerAttackData[] | null {
-    const game = this.getGame(data.gameId);
-    const result = game!.checkAttack(data);
-    if (result) {
-      return result.map((v) => ({
-        ...v,
-        currentPlayer: playerIndex,
-      }));
+  private attack(game: Game, data: ClientAttackData, player: Player) {
+    const result = game.checkAttack(data);
+    if (result !== null) {
+      mapAttackResults(result, data.indexPlayer).forEach((res) => {
+        this.sendMessage<ServerAttackData>(player.ws, EventType.Attack, res);
+      });
+
+      this.checkWinner(game, player);
     }
-    return result;
   }
 
-  private finishGame(game: Game, winnerIndex: number, clientId: string): void {
-    this.broadcastRoomPlayers<ServerFinishData>(
-      game.room.players,
+  private checkWinner(game: Game, player: Player) {
+    const winnerIndex = game.getWinnerIndex();
+    if (winnerIndex === null) {
+      this.turn(game);
+    } else {
+      this.finishGame(game, winnerIndex, player);
+    }
+  }
+
+  private finishGame(game: Game, winnerIndex: number, player: Player): void {
+    this.broadcastGamePlayers<ServerFinishData>(
+      game.players,
       EventType.Finish,
       {
         winPlayer: winnerIndex,
       },
     );
-    this.clients[clientId]!.wins += 1;
+    this.incrementPlayerWins(player);
     this.updateWinners();
+  }
+
+  private deleteClient(clientId: string): void {
+    delete this.clients[clientId];
+  }
+
+  private setRoom(roomId: number, room: Room): void {
+    if (!this.rooms[roomId]) {
+      this.rooms[roomId] = room;
+    }
+  }
+
+  private getPlayer(id: string): Player | undefined {
+    return this.clients[id];
+  }
+
+  private getRoom(id: number): Room | undefined {
+    return this.rooms[id];
+  }
+
+  private deleteRoom(roomIndex: number): void {
+    delete this.rooms[roomIndex];
+  }
+
+  private incrementPlayerWins(player: Player) {
+    player.wins += 1;
   }
 }
