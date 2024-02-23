@@ -28,6 +28,7 @@ import {
 import { Room } from './Room';
 import { Game } from './Game';
 import { AttackStatus } from '../enums/attack-status.enum';
+import { OPPONENT_PLAYER_SHIPS, getBotAttack } from '../mock/mock';
 
 export interface AppData<T> {
   [id: string]: T;
@@ -52,6 +53,12 @@ export class App {
   public start() {
     this.wss.on('connection', (ws: WebSocket) => {
       const clientId = crypto.randomUUID();
+
+      ws.on('error', console.error);
+
+      ws.on('close', () => {
+        delete this.clients[clientId];
+      });
 
       ws.on('message', (rawData: RawData) => {
         const msg: WSMessage = parseRawData(rawData);
@@ -95,13 +102,14 @@ export class App {
           }
           case EventType.Attack: {
             const data = msg.data as ClientAttackData;
-            const player = this.clients[clientId];
+            // const player = this.clients[clientId];
             const game = this.getGame(data.gameId);
 
-            if (game && player && game.currentPlayerIndex === player.index) {
+            // if (game && player && game.currentPlayerIndex === player.index) {
+            if (game) {
               const attackResults: ServerAttackData[] | null = this.attack(
                 data,
-                player.index,
+                data.indexPlayer,
               );
 
               if (attackResults !== null) {
@@ -125,6 +133,25 @@ export class App {
                 }
               }
             }
+            break;
+          }
+          case EventType.SinglePlay: {
+            const room = this.createRoom();
+            this.addPlayerToRoom(room, clientId);
+            const game = this.createGame(room);
+            const BOT_INDEX = 9999;
+            game.setBotIndex(BOT_INDEX);
+            game.setGameShips(OPPONENT_PLAYER_SHIPS, BOT_INDEX);
+            // TODO
+            const botAttack: ClientAttackData = getBotAttack(
+              game.id,
+              BOT_INDEX,
+            );
+
+            ws.emit(
+              'message',
+              this.getMessage<ClientAttackData>(EventType.Attack, botAttack),
+            );
           }
         }
       });
@@ -159,13 +186,15 @@ export class App {
   }
 
   private sendMessage<T>(ws: WebSocket, event: EventType, data: T): void {
-    ws.send(
-      stringifyData({
-        type: event,
-        data: stringifyData<T>(data),
-        id: 0,
-      }),
-    );
+    ws.send(this.getMessage<T>(event, data));
+  }
+
+  private getMessage<T>(event: EventType, data: T): string {
+    return stringifyData({
+      type: event,
+      data: stringifyData<T>(data),
+      id: 0,
+    });
   }
 
   private updateRooms() {
@@ -207,7 +236,7 @@ export class App {
       });
   }
 
-  private createGame(room: Room): void {
+  private createGame(room: Room): Game {
     const game = new Game(room, getSize(this.rooms));
     this.games.push(game);
 
@@ -217,6 +246,8 @@ export class App {
         idPlayer: pl.index,
       });
     });
+
+    return game;
   }
 
   private getGame(gameId: number): Game | undefined {
@@ -260,9 +291,13 @@ export class App {
   }
 
   private finishGame(game: Game, winnerIndex: number, clientId: string): void {
-    this.broadcastRoomPlayers(game.room.players, EventType.Finish, {
-      winPlayer: winnerIndex,
-    });
+    this.broadcastRoomPlayers<ServerFinishData>(
+      game.room.players,
+      EventType.Finish,
+      {
+        winPlayer: winnerIndex,
+      },
+    );
     this.clients[clientId]!.wins += 1;
     this.updateWinners();
   }

@@ -1,4 +1,4 @@
-import { Ship } from '../models/client-data.model';
+import { ClientAttackData, Ship } from '../models/client-data.model';
 
 export const CURRENT_PLAYER_SHIPS: Ship[] = [
   {
@@ -186,14 +186,17 @@ export const OPPONENT_PLAYER_SHIPS: Ship[] = [
   },
 ];
 
-export function getMockAttack() {
+export function getBotAttack(
+  gameIndex: number,
+  playerIndex: number,
+): ClientAttackData {
   const maxFloored = 0;
   const minCeiled = 9;
 
   return {
     x: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
     y: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
-    gameId: 2,
-    indexPlayer: 2,
+    gameId: gameIndex,
+    indexPlayer: playerIndex,
   };
 }

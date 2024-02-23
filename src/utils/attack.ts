@@ -1,3 +1,4 @@
+import { AttackStatus } from '../enums/attack-status.enum';
 import { Ship } from '../models/client-data.model';
 
 export function checkAttack(

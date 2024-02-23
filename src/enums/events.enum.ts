@@ -11,4 +11,5 @@ export enum EventType {
   RandomAttack = 'randomAttack',
   Turn = 'turn',
   Finish = 'finish',
+  SinglePlay = 'single_play',
 }

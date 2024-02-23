@@ -377,4 +377,13 @@ export class Game {
       return null;
     }
   }
+
+  setBotIndex(index: number): void {
+    const bot = this.players.find(
+      (pl) => pl.index === undefined && pl.ws === undefined,
+    );
+    if (bot) {
+      bot.index = index;
+    }
+  }
 }
