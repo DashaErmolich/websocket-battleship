@@ -89,7 +89,6 @@ export class App {
               this.createGame(room);
               this.deleteRoom(room.index);
               this.updateRooms();
-              console.log(this.games);
             }
             break;
           }
@@ -118,7 +117,7 @@ export class App {
               game &&
               game.currentPlayerIndex === data.indexPlayer
             ) {
-              if (!data.x && !data.y) {
+              if (data.x === undefined && data.y === undefined) {
                 const randomCoordinates = game.getRandomCellCoordinates(
                   data.indexPlayer,
                 );

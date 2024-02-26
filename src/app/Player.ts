@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
 import { GamePlayer, PlayerLoginData } from '../models/player.model';
 import { Ship } from '../models/client-data.model';
-import { GameGrid } from '../models/game-model';
+import { GameGrid, GameShipData } from '../models/game-model';
 
 export class Player implements GamePlayer {
   name: string;
@@ -12,6 +12,7 @@ export class Player implements GamePlayer {
   grid: GameGrid | null;
   points: number;
   ships: Ship[] | null;
+  shipsData: GameShipData[] | null;
 
   constructor(data: PlayerLoginData, index: number, ws: WebSocket) {
     this.name = data.name;
@@ -22,5 +23,6 @@ export class Player implements GamePlayer {
     this.grid = null;
     this.points = 0;
     this.ships = null;
+    this.shipsData = null;
   }
 }
