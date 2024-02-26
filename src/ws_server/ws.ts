@@ -6,5 +6,5 @@ export const wss = new WebSocketServer(
   {
     port: PORT,
   },
-  () => console.log(`Start websocket server started on the ${PORT} port!`),
+  () => console.log(`Websocket server started on the ${PORT} port!`),
 );

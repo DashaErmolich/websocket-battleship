@@ -239,10 +239,6 @@ export class Game {
     });
   }
 
-  private incrementPlayerPoints(player: GamePlayer): void {
-    player.points += 1;
-  }
-
   private getFailureAttackResult(
     grid: GameGrid,
     position: Coordinates,
