@@ -9,7 +9,7 @@ import { Room } from '../app/Room';
 import { Player } from '../app/Player';
 import { GridCellData } from '../models/game-model';
 import { EventType } from '../enums/events.enum';
-import { Coordinates } from '../models/client-data.model';
+import { ClientAttackData, Coordinates } from '../models/client-data.model';
 
 export function parseRawData(raw: RawData): WSMessage {
   const msg: WSMessage = JSON.parse(raw.toString());
@@ -88,5 +88,19 @@ export function getRandomCoordinates(): Coordinates {
   return {
     x: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
     y: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
+  };
+}
+
+export function getBotAttack(
+  gameIndex: number,
+  playerIndex: number,
+): ClientAttackData {
+  const randomCoordinates = getRandomCoordinates();
+
+  return {
+    x: randomCoordinates.x,
+    y: randomCoordinates.y,
+    gameId: gameIndex,
+    indexPlayer: playerIndex,
   };
 }
