@@ -29,10 +29,7 @@ export interface ClientAddShipsData {
   indexPlayer: number;
 }
 
-export interface ClientAttackData extends Coordinates {
-  gameId: number;
-  indexPlayer: number;
-}
+export interface ClientAttackData extends Coordinates, ClientRandomAttack {}
 
 export interface ClientRandomAttack {
   gameId: number;

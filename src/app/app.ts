@@ -108,7 +108,8 @@ export class App {
             }
             break;
           }
-          case EventType.Attack: {
+          case EventType.Attack:
+          case EventType.RandomAttack: {
             const data = msg.data as ClientAttackData;
             const game = this.getGame(data.gameId);
 
@@ -117,6 +118,14 @@ export class App {
               game &&
               game.currentPlayerIndex === data.indexPlayer
             ) {
+              if (!data.x && !data.y) {
+                const randomCoordinates = game.getRandomCellCoordinates(
+                  data.indexPlayer,
+                );
+                data.x = randomCoordinates.x;
+                data.y = randomCoordinates.y;
+              }
+
               this.attack(game, data, player);
             }
             break;

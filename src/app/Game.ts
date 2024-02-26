@@ -6,10 +6,15 @@ import {
 import { GameRoom } from '../models/room.model';
 import { AttackStatus } from '../enums/attack-status.enum';
 import { GridCell } from '../enums/grid-cell.enum';
-import { setCellValue } from '../utils/utils';
 import { Direction } from '../enums/direction-enum';
 import { GamePlayer } from '../models/player.model';
 import { GameGrid, GridCellData } from '../models/game-model';
+import {
+  createGrid,
+  getCellCoordinate,
+  setCellValue,
+} from '../utils/grid-utils';
+import { getRandomCoordinates, getUniqueArrayOfObjects } from '../utils/utils';
 
 interface CellNeighbors {
   direction: Direction;
@@ -34,7 +39,7 @@ export class Game {
 
     if (player) {
       player.ships = [...ships];
-      player.grid = this.fillGrid(player.ships);
+      player.grid = this.fillGrid(player.ships, this.GRID_SIZE);
     }
   }
 
@@ -55,9 +60,9 @@ export class Game {
           return null;
         case GridCell.Empty:
           this.setNextPlayerIndex(data.indexPlayer);
-          return this.failureAttackResult(opponent.grid, targetPosition);
+          return this.getFailureAttackResult(opponent.grid, targetPosition);
         case GridCell.Ship:
-          return this.successAttackResult(
+          return this.getSuccessAttackResult(
             opponent.grid,
             targetPosition,
             opponent,
@@ -67,14 +72,8 @@ export class Game {
     return null;
   }
 
-  private createGrid<T>(filler: T, size = this.GRID_SIZE): T[][] {
-    return Array.from(new Array(size), () =>
-      Array.from(new Array(size), () => filler),
-    );
-  }
-
-  private fillGrid(data: Ship[]) {
-    const grid = this.createGrid<GridCell>(GridCell.Empty);
+  private fillGrid(data: Ship[], size: number) {
+    const grid = createGrid<GridCell>(GridCell.Empty, size);
 
     for (let i = 0; i < data.length; i++) {
       const ship = data[i];
@@ -114,14 +113,14 @@ export class Game {
       y: number;
     },
   ): boolean {
-    const checkData = this.getNeighbors(grid, target).filter(
+    const checkData = this.getCellNeighbors(grid, target).filter(
       (v) => v.value !== undefined,
     );
     return checkData.every((v) => v.value !== GridCell.Ship);
   }
 
   private getResults(grid: GameGrid, target: Coordinates) {
-    const neighbors: CellNeighbors[] = this.getNeighbors(grid, target);
+    const neighbors: CellNeighbors[] = this.getCellNeighbors(grid, target);
 
     const direction: boolean = neighbors
       .filter((v) => v.value === GridCell.Shot)
@@ -129,149 +128,28 @@ export class Game {
         (v) => v.direction === Direction.Up || v.direction === Direction.Down,
       );
 
-    let data: GridCell[];
+    const data: GridCell[] = direction
+      ? this.getGridColumn(grid, target.x)
+      : this.getGridRow(grid, target.y);
 
-    if (direction) {
-      // full column
-      data = this.getGridColumn(grid, target.x);
-    } else {
-      //full row
-      data = this.getGridRow(grid, target.y);
-    }
+    const shipWithNeighbors: GridCellData[] = this.getShipWithNeighbors(
+      data,
+      direction,
+      target,
+      grid,
+    );
 
-    let res: GridCellData[] = [];
-
-    // ship cells
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] === GridCell.Shot) {
-        const shipCell: GridCellData = {
-          position: direction ? { x: target.x, y: i } : { x: i, y: target.y }, // column : row
-          status: AttackStatus.Killed,
-        };
-
-        res.push(shipCell);
-
-        const shipNeighbors: GridCellData[] = this.getNeighbors(
-          grid,
-          shipCell.position,
-        )
-          .filter(
-            (v) => v.value === GridCell.Empty || v.value === GridCell.Miss,
-          )
-          .map((v) => {
-            let position: Coordinates;
-            switch (v.direction) {
-              case Direction.Left:
-                position = {
-                  x: shipCell.position.x - 1,
-                  y: shipCell.position.y,
-                };
-                break;
-              case Direction.Right:
-                position = {
-                  x: shipCell.position.x + 1,
-                  y: shipCell.position.y,
-                };
-                break;
-              case Direction.Up:
-                position = {
-                  x: shipCell.position.x,
-                  y: shipCell.position.y - 1,
-                };
-                break;
-              case Direction.Down:
-                position = {
-                  x: shipCell.position.x,
-                  y: shipCell.position.y + 1,
-                };
-                break;
-              case Direction.UpLeft:
-                position = {
-                  x: shipCell.position.x - 1,
-                  y: shipCell.position.y - 1,
-                };
-                break;
-              case Direction.UpRight:
-                position = {
-                  x: shipCell.position.x + 1,
-                  y: shipCell.position.y - 1,
-                };
-                break;
-              case Direction.DownLeft:
-                position = {
-                  x: shipCell.position.x - 1,
-                  y: shipCell.position.y + 1,
-                };
-                break;
-              case Direction.DownRight:
-                position = {
-                  x: shipCell.position.x + 1,
-                  y: shipCell.position.y + 1,
-                };
-                break;
-            }
-            const emptyCell: GridCellData = {
-              position: { ...position },
-              status: AttackStatus.Miss,
-            };
-            return emptyCell;
-          });
-
-        res = [...res, ...shipNeighbors];
-      }
-    }
-
-    const set: GridCellData[] = [
-      ...new Set(res.map((v) => JSON.stringify(v))),
-    ].map((v) => JSON.parse(v));
-
-    console.log(set);
-    return set;
+    return getUniqueArrayOfObjects<GridCellData>(shipWithNeighbors);
   }
 
-  private getNeighbors(grid: GameGrid, target: Coordinates): CellNeighbors[] {
-    return [
-      {
-        direction: Direction.Up,
-        value: grid[target.y - 1] ? grid[target.y - 1]![target.x] : undefined,
-      },
-      {
-        direction: Direction.Down,
-        value: grid[target.y + 1] ? grid[target.y + 1]![target.x] : undefined,
-      },
-      {
-        direction: Direction.Left,
-        value: grid[target.y]![target.x - 1],
-      },
-      {
-        direction: Direction.Right,
-        value: grid[target.y]![target.x + 1],
-      },
-      {
-        direction: Direction.UpLeft,
-        value: grid[target.y - 1]
-          ? grid[target.y - 1]![target.x - 1]
-          : undefined,
-      },
-      {
-        direction: Direction.UpRight,
-        value: grid[target.y - 1]
-          ? grid[target.y - 1]![target.x + 1]
-          : undefined,
-      },
-      {
-        direction: Direction.DownLeft,
-        value: grid[target.y + 1]
-          ? grid[target.y + 1]![target.x - 1]
-          : undefined,
-      },
-      {
-        direction: Direction.DownRight,
-        value: grid[target.y + 1]
-          ? grid[target.y + 1]![target.x + 1]
-          : undefined,
-      },
-    ];
+  private getCellNeighbors(
+    grid: GameGrid,
+    target: Coordinates,
+  ): CellNeighbors[] {
+    return Object.values(Direction).map((dir) => ({
+      direction: dir,
+      value: this.getCell(grid, target, dir),
+    }));
   }
 
   private getGridColumn(grid: GameGrid, columnIndex: number): GridCell[] {
@@ -282,29 +160,19 @@ export class Game {
     return grid[rowIndex]!;
   }
 
-  private getUpCell(grid: GameGrid, target: Coordinates): GridCell | undefined {
-    return grid[target.y - 1] ? grid[target.y - 1]![target.x] : undefined;
-  }
-
-  private getDownCell(
+  private getCell(
     grid: GameGrid,
     target: Coordinates,
+    position?: Direction,
   ): GridCell | undefined {
-    return grid[target.y + 1] ? grid[target.y + 1]![target.x] : undefined;
-  }
+    const coordinate = getCellCoordinate(target, position);
+    const row: GridCell[] | undefined = grid[coordinate.y];
 
-  private getLeftCell(
-    grid: GameGrid,
-    target: Coordinates,
-  ): GridCell | undefined {
-    return grid[target.y]![target.x - 1];
-  }
+    if (row !== undefined) {
+      return row[coordinate.x];
+    }
 
-  private getRightCell(
-    grid: GameGrid,
-    target: Coordinates,
-  ): GridCell | undefined {
-    return grid[target.y]![target.x + 1];
+    return undefined;
   }
 
   public setNextPlayerIndex(playerIndex: number): void {
@@ -361,7 +229,7 @@ export class Game {
     player.points += 1;
   }
 
-  private failureAttackResult(
+  private getFailureAttackResult(
     grid: GameGrid,
     position: Coordinates,
   ): GridCellData[] {
@@ -375,7 +243,7 @@ export class Game {
     ];
   }
 
-  successAttackResult(
+  private getSuccessAttackResult(
     grid: GameGrid,
     position: Coordinates,
     opponent: GamePlayer,
@@ -394,5 +262,73 @@ export class Game {
         position: position,
       },
     ];
+  }
+
+  private getShipWithNeighbors(
+    data: GridCell[],
+    shipDirection: boolean,
+    target: Coordinates,
+    grid: GameGrid,
+  ): GridCellData[] {
+    let result: GridCellData[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] === GridCell.Shot) {
+        const shipCell: GridCellData = {
+          position: shipDirection
+            ? { x: target.x, y: i } // column
+            : { x: i, y: target.y }, // row
+          status: AttackStatus.Killed,
+        };
+
+        const shipNeighbors: GridCellData[] = this.getCellNeighbors(
+          grid,
+          shipCell.position,
+        )
+          .filter(
+            (cell) =>
+              cell.value === GridCell.Empty || cell.value === GridCell.Miss,
+          )
+          .map((v) => ({
+            position: getCellCoordinate(shipCell.position, v.direction),
+            status: AttackStatus.Miss,
+          }));
+
+        result = [...result, { ...shipCell }, ...shipNeighbors];
+      }
+    }
+
+    return result;
+  }
+
+  public getRandomCellCoordinates(playerIndex: number): Coordinates {
+    const opponentGrid = this.getOpponent(playerIndex)?.grid;
+    let randomCoordinates = getRandomCoordinates();
+    let isNotAttackedCell: boolean;
+    if (opponentGrid) {
+      let randomCell = this.getCell(opponentGrid, randomCoordinates);
+      if (randomCell) {
+        isNotAttackedCell = this.isNotAttackedCell(randomCell);
+        while (isNotAttackedCell === false) {
+          randomCoordinates = getRandomCoordinates();
+          randomCell = this.getCell(opponentGrid, randomCoordinates);
+          if (randomCell) {
+            isNotAttackedCell = this.isNotAttackedCell(randomCell);
+          }
+        }
+      }
+    }
+    return randomCoordinates;
+  }
+
+  private isNotAttackedCell(value: GridCell): boolean {
+    switch (value) {
+      case GridCell.Miss:
+      case GridCell.Shot:
+        return false;
+      case GridCell.Empty:
+      case GridCell.Ship:
+        return true;
+    }
   }
 }

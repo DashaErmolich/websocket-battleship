@@ -7,10 +7,9 @@ import {
 } from '../models/server-data.model';
 import { Room } from '../app/Room';
 import { Player } from '../app/Player';
-import { GridCell } from '../enums/grid-cell.enum';
 import { GridCellData } from '../models/game-model';
-import { Coordinates } from '../models/client-data.model';
 import { EventType } from '../enums/events.enum';
+import { Coordinates } from '../models/client-data.model';
 
 export function parseRawData(raw: RawData): WSMessage {
   const msg: WSMessage = JSON.parse(raw.toString());
@@ -57,15 +56,6 @@ export function getSize<T extends Object>(obj: T): number {
   return Object.entries(obj).length;
 }
 
-export function setCellValue(
-  grid: string[][],
-  y: number,
-  x: number,
-  value: GridCell,
-) {
-  grid[y]![x] = value;
-}
-
 export function getUUID(): string {
   return crypto.randomUUID();
 }
@@ -83,4 +73,20 @@ export function getMessage<T>(event: EventType, data: T): string {
     data: stringifyData<T>(data),
     id: 0,
   });
+}
+
+export function getUniqueArrayOfObjects<T>(array: T[]): T[] {
+  return [...new Set(array.map((item) => JSON.stringify(item)))].map((item) =>
+    JSON.parse(item),
+  );
+}
+
+export function getRandomCoordinates(): Coordinates {
+  const maxFloored = 0;
+  const minCeiled = 9;
+
+  return {
+    x: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
+    y: Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled),
+  };
 }
